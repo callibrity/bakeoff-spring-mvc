@@ -9,10 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.callibrity.bakeoff</groupId>
-	<artifactId>bakeoff-api</artifactId>
+	<artifactId>bakeoff-spring-mvc</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>bakeoff-api</name>
-	<description>Demo project for Spring Boot</description>
+	<name>Bake-Off Spring MVC</name>
 	<properties>
 		<java.version>17</java.version>
 	</properties>
