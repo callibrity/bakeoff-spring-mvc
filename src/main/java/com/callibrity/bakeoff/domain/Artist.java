@@ -1,17 +1,20 @@
 package com.callibrity.bakeoff.domain;
 
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;
-import java.util.Objects;
 import java.util.UUID;
 
 @Entity
 @Getter
 @Setter
-@ToString
 @NoArgsConstructor
+@EqualsAndHashCode(of="id")
 public class Artist {
 
 // ------------------------------ FIELDS ------------------------------
@@ -23,16 +26,4 @@ public class Artist {
     private String name;
     private Genre genre;
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Artist artist = (Artist) o;
-        return id.equals(artist.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id);
-    }
 }
