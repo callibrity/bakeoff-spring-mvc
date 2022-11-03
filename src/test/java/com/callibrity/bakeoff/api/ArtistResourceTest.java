@@ -3,76 +3,58 @@ package com.callibrity.bakeoff.api;
 import com.callibrity.bakeoff.domain.Artist;
 import com.callibrity.bakeoff.domain.ArtistRepository;
 import com.callibrity.bakeoff.domain.Genre;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
-@WebMvcTest(ArtistResource.class)
+@ExtendWith(MockitoExtension.class)
 class ArtistResourceTest {
 
-    @MockBean
+    @Mock
     private ArtistRepository mockRepository;
-
-    @Autowired
-    private MockMvc mockMvc;
-
 
     @Captor
     private ArgumentCaptor<Artist> artistCaptor;
 
-    @Autowired
-    private ObjectMapper mapper;
-
     @Test
-    void shouldCreateArtist() throws Exception {
+    void shouldCreateArtist() {
         CreateArtistRequest request = new CreateArtistRequest("Prince", Genre.Rock);
-        mockMvc.perform(
-                        post("/api/artists")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isOk());
+        ArtistResource resource = new ArtistResource(mockRepository);
+        Artist result = resource.createArtist(request);
 
         verify(mockRepository).save(artistCaptor.capture());
 
         Artist artist = artistCaptor.getValue();
         assertThat(artist.getName()).isEqualTo("Prince");
         assertThat(artist.getGenre()).isEqualTo(Genre.Rock);
+        assertThat(artist).isSameAs(result);
     }
 
     @Test
-    void shouldUpdateArtist() throws Exception {
+    void shouldUpdateArtist() {
         final Artist original = new Artist();
         original.setName("Garth Brooks");
         original.setGenre(Genre.Country);
 
         when(mockRepository.findById(original.getId())).thenReturn(Optional.of(original));
 
+        ArtistResource resource = new ArtistResource(mockRepository);
+
         UpdateArtistRequest request = new UpdateArtistRequest("Prince", Genre.Rock);
-        mockMvc.perform(
-                        put("/api/artists/{id}", original.getId())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isOk());
+        resource.updateArtist(original.getId(), request);
 
         verify(mockRepository).save(artistCaptor.capture());
 
@@ -82,45 +64,47 @@ class ArtistResourceTest {
     }
 
     @Test
-    void shouldNotUpdateArtistWhenNotFound() throws Exception {
+    void shouldNotUpdateArtistWhenNotFound() {
 
         when(mockRepository.findById("12345")).thenReturn(Optional.empty());
 
+        ArtistResource resource = new ArtistResource(mockRepository);
+
         UpdateArtistRequest request = new UpdateArtistRequest("Prince", Genre.Rock);
-        mockMvc.perform(
-                        put("/api/artists/{id}", "12345")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(mapper.writeValueAsString(request)))
-                .andExpect(status().isNotFound());
+
+        assertThatThrownBy(() -> resource.updateArtist("12345", request))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
-    void shouldRetrieveArtist() throws Exception {
+    void shouldRetrieveArtist() {
         final Artist artist = new Artist();
         artist.setName("Garth Brooks");
         artist.setGenre(Genre.Country);
         when(mockRepository.findById(artist.getId())).thenReturn(Optional.of(artist));
 
-        mockMvc.perform(get("/api/artists/{id}", artist.getId()).accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(artist.getId()))
-                .andExpect(jsonPath("$.name").value("Garth Brooks"))
-                .andExpect(jsonPath("$.genre").value("Country"));
+        ArtistResource resource = new ArtistResource(mockRepository);
 
+        assertThat(resource.getArtistById(artist.getId())).isSameAs(artist);
     }
 
+
     @Test
-    void shouldNotRetrieveArtistWhenNotFound() throws Exception {
+    void shouldNotRetrieveArtistWhenNotFound() {
 
         when(mockRepository.findById("12345")).thenReturn(Optional.empty());
+        ArtistResource resource = new ArtistResource(mockRepository);
 
-        mockMvc.perform(get("/api/artists/{id}", "12345").accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNotFound());
 
+        assertThatThrownBy(() -> resource.getArtistById("12345"))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(mockRepository).findById("12345");
+        verifyNoMoreInteractions(mockRepository);
     }
 
     @Test
-    void shouldListArtists() throws Exception {
+    void shouldListArtists() {
         final Artist garth = new Artist();
         garth.setName("Garth Brooks");
         garth.setGenre(Genre.Country);
@@ -129,25 +113,25 @@ class ArtistResourceTest {
         prince.setName("Prince");
         prince.setGenre(Genre.Rock);
 
-
         final Artist madonna = new Artist();
         madonna.setName("Prince");
         madonna.setGenre(Genre.Pop);
 
         when(mockRepository.findAll()).thenReturn(List.of(garth, prince, madonna));
 
-        mockMvc.perform(get("/api/artists"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.size()").value(3));
+        ArtistResource resource = new ArtistResource(mockRepository);
+
+        assertThat(resource.listArtists()).containsExactly(garth, prince, madonna);
+
+        verify(mockRepository).findAll();
+        verifyNoMoreInteractions(mockRepository);
     }
 
     @Test
-    void shouldDeleteArtist() throws Exception {
-
-        mockMvc.perform(delete("/api/artists/{id}", "12345")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
-
+    void shouldDeleteArtist() {
+        ArtistResource resource = new ArtistResource(mockRepository);
+        resource.deleteArtist("12345");
         verify(mockRepository).deleteById("12345");
+        verifyNoMoreInteractions(mockRepository);
     }
 }
